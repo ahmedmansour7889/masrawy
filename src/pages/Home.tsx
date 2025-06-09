@@ -3,8 +3,9 @@ import { supabase } from '../lib/supabase';
 import PostCard from '../components/PostCard';
 import TrendingSection from '../components/TrendingSection';
 import SuggestedUsers from '../components/SuggestedUsers';
+import Stories from '../components/Stories';
 import { useAuth } from '../contexts/AuthContext';
-import { RefreshCw, Plus, Sparkles } from 'lucide-react';
+import { RefreshCw, Plus, Sparkles, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface Post {
@@ -12,12 +13,15 @@ interface Post {
   content: string;
   image_url?: string;
   video_url?: string;
+  media_type?: string;
+  privacy_level?: string;
   created_at: string;
   user_id: string;
   profiles: {
     username: string;
     full_name: string;
     avatar_url?: string;
+    is_verified?: boolean;
   };
 }
 
@@ -26,7 +30,7 @@ export default function Home() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'following' | 'all'>('all');
+  const [activeTab, setActiveTab] = useState<'following' | 'all' | 'trending'>('all');
 
   useEffect(() => {
     fetchPosts();
@@ -41,7 +45,8 @@ export default function Home() {
           profiles (
             username,
             full_name,
-            avatar_url
+            avatar_url,
+            is_verified
           )
         `);
 
@@ -56,13 +61,19 @@ export default function Home() {
         if (followingIds.length > 0) {
           query = query.in('user_id', followingIds);
         } else {
-          // If not following anyone, show empty state
           setPosts([]);
           setLoading(false);
           setRefreshing(false);
           return;
         }
+      } else if (activeTab === 'trending') {
+        // Get trending posts (posts with most reactions in last 24 hours)
+        const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        query = query.gte('created_at', yesterday);
       }
+
+      // Filter by privacy level
+      query = query.in('privacy_level', ['public', 'followers']);
 
       const { data, error } = await query
         .order('created_at', { ascending: false })
@@ -124,6 +135,17 @@ export default function Home() {
                 >
                   المتابعون
                 </button>
+                <button
+                  onClick={() => setActiveTab('trending')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    activeTab === 'trending'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  <Zap className="w-4 h-4 ml-2 inline" />
+                  الرائج
+                </button>
               </div>
             </div>
             <div className="flex items-center space-x-3 space-x-reverse">
@@ -165,6 +187,16 @@ export default function Home() {
             >
               المتابعون
             </button>
+            <button
+              onClick={() => setActiveTab('trending')}
+              className={`flex-1 py-2 text-center rounded-lg text-sm font-medium transition-colors ${
+                activeTab === 'trending'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              الرائج
+            </button>
           </div>
         </div>
       </div>
@@ -173,6 +205,9 @@ export default function Home() {
         <div className="lg:grid lg:grid-cols-12 lg:gap-6">
           {/* Main Content */}
           <div className="lg:col-span-8">
+            {/* Stories */}
+            <Stories />
+
             {/* Quick Post (Desktop) */}
             <div className="hidden lg:block bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
               <div className="flex space-x-4 space-x-reverse">
@@ -200,21 +235,25 @@ export default function Home() {
             {posts.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-6xl mb-4">
-                  {activeTab === 'following' ? '👥' : '📱'}
+                  {activeTab === 'following' ? '👥' : activeTab === 'trending' ? '🔥' : '📱'}
                 </div>
                 <h3 className="text-lg font-medium text-gray-900 mb-2">
                   {activeTab === 'following' 
                     ? 'لا توجد منشورات من المتابعين'
+                    : activeTab === 'trending'
+                    ? 'لا توجد منشورات رائجة'
                     : 'لا توجد منشورات حتى الآن'
                   }
                 </h3>
                 <p className="text-gray-600 mb-4">
                   {activeTab === 'following'
                     ? 'ابدأ بمتابعة أشخاص لرؤية منشوراتهم هنا'
+                    : activeTab === 'trending'
+                    ? 'تحقق مرة أخرى لاحقاً لرؤية المحتوى الرائج'
                     : 'ابدأ بمتابعة أشخاص أو انشر محتوى جديد!'
                   }
                 </p>
-                {activeTab === 'following' && (
+                {(activeTab === 'following' || activeTab === 'trending') && (
                   <Link
                     to="/explore"
                     className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"

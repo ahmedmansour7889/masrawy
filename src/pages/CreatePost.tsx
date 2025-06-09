@@ -1,22 +1,26 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Image, Video, Send, X } from 'lucide-react';
+import { Image, Video, Send, X, MapPin, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import MediaUpload from '../components/MediaUpload';
+import EmojiPicker from '../components/EmojiPicker';
+import HashtagInput from '../components/HashtagInput';
 
 export default function CreatePost() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [content, setContent] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
-  const [videoUrl, setVideoUrl] = useState('');
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [privacyLevel, setPrivacyLevel] = useState<'public' | 'followers' | 'private'>('public');
+  const [location, setLocation] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!content.trim() && !imageUrl && !videoUrl) {
-      setError('يجب إضافة محتوى للمنشور');
+    if (!content.trim() && selectedFiles.length === 0) {
+      setError('يجب إضافة محتوى أو ملفات للمنشور');
       return;
     }
 
@@ -24,16 +28,43 @@ export default function CreatePost() {
     setError('');
 
     try {
-      const { error } = await supabase
+      // Upload media files first
+      let mediaUrls: string[] = [];
+      let mediaType = 'text';
+
+      if (selectedFiles.length > 0) {
+        // In a real app, you would upload files to a storage service
+        // For now, we'll simulate with placeholder URLs
+        mediaUrls = selectedFiles.map((file, index) => 
+          `https://example.com/uploads/${user?.id}/${Date.now()}_${index}_${file.name}`
+        );
+        
+        // Determine media type
+        const hasImages = selectedFiles.some(file => file.type.startsWith('image/'));
+        const hasVideos = selectedFiles.some(file => file.type.startsWith('video/'));
+        
+        if (hasImages && hasVideos) {
+          mediaType = 'mixed';
+        } else if (hasImages) {
+          mediaType = 'image';
+        } else if (hasVideos) {
+          mediaType = 'video';
+        }
+      }
+
+      // Create post
+      const { error: postError } = await supabase
         .from('posts')
         .insert({
           user_id: user?.id,
           content: content.trim(),
-          image_url: imageUrl || '',
-          video_url: videoUrl || '',
+          image_url: mediaUrls.find(url => url.includes('image')) || '',
+          video_url: mediaUrls.find(url => url.includes('video')) || '',
+          media_type: mediaType,
+          privacy_level: privacyLevel,
         });
 
-      if (error) {
+      if (postError) {
         setError('حدث خطأ أثناء نشر المحتوى');
       } else {
         navigate('/home');
@@ -45,19 +76,15 @@ export default function CreatePost() {
     setLoading(false);
   };
 
-  const handleImageUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setImageUrl(e.target.value);
-    if (e.target.value) {
-      setVideoUrl(''); // Clear video URL if image is added
-    }
+  const handleEmojiSelect = (emoji: string) => {
+    setContent(prev => prev + emoji);
   };
 
-  const handleVideoUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setVideoUrl(e.target.value);
-    if (e.target.value) {
-      setImageUrl(''); // Clear image URL if video is added
-    }
-  };
+  const privacyOptions = [
+    { value: 'public', label: 'عام', icon: '🌍', description: 'يمكن للجميع رؤيته' },
+    { value: 'followers', label: 'المتابعون', icon: '👥', description: 'المتابعون فقط' },
+    { value: 'private', label: 'خاص', icon: '🔒', description: 'أنت فقط' }
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 lg:pb-0">
@@ -74,7 +101,7 @@ export default function CreatePost() {
             <h1 className="text-xl font-bold text-gray-900">منشور جديد</h1>
             <button
               onClick={handleSubmit}
-              disabled={loading || (!content.trim() && !imageUrl && !videoUrl)}
+              disabled={loading || (!content.trim() && selectedFiles.length === 0)}
               className="px-4 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
             >
               {loading ? 'نشر...' : 'نشر'}
@@ -92,82 +119,121 @@ export default function CreatePost() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Content Input */}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* User Info */}
+            <div className="flex items-center space-x-3 space-x-reverse">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold">
+                {user?.user_metadata?.avatar_url ? (
+                  <img
+                    src={user.user_metadata.avatar_url}
+                    alt="Your avatar"
+                    className="w-12 h-12 rounded-full object-cover"
+                  />
+                ) : (
+                  user?.user_metadata?.full_name?.charAt(0).toUpperCase() || 'أ'
+                )}
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">
+                  {user?.user_metadata?.full_name || 'المستخدم'}
+                </h3>
+                <div className="flex items-center space-x-2 space-x-reverse">
+                  <select
+                    value={privacyLevel}
+                    onChange={(e) => setPrivacyLevel(e.target.value as any)}
+                    className="text-sm text-gray-600 bg-transparent border-none focus:ring-0 p-0"
+                  >
+                    {privacyOptions.map(option => (
+                      <option key={option.value} value={option.value}>
+                        {option.icon} {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Content Input with Hashtag Support */}
             <div>
-              <textarea
+              <HashtagInput
                 value={content}
-                onChange={(e) => setContent(e.target.value)}
+                onChange={setContent}
                 placeholder="ما الذي تريد مشاركته؟"
-                className="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none min-h-[120px] text-lg placeholder-gray-500"
-                maxLength={500}
               />
-              <div className="text-right text-sm text-gray-500 mt-1">
-                {content.length}/500
+              <div className="flex items-center justify-between mt-2">
+                <div className="flex items-center space-x-2 space-x-reverse">
+                  <EmojiPicker onEmojiSelect={handleEmojiSelect} />
+                </div>
+                <div className="text-right text-sm text-gray-500">
+                  {content.length}/500
+                </div>
               </div>
             </div>
 
-            {/* Media Inputs */}
-            <div className="space-y-4">
-              <div>
-                <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
-                  <Image className="w-4 h-4 ml-2" />
-                  رابط الصورة (اختياري)
-                </label>
-                <input
-                  type="url"
-                  value={imageUrl}
-                  onChange={handleImageUrlChange}
-                  placeholder="https://example.com/image.jpg"
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
-                  <Video className="w-4 h-4 ml-2" />
-                  رابط الفيديو (اختياري)
-                </label>
-                <input
-                  type="url"
-                  value={videoUrl}
-                  onChange={handleVideoUrlChange}
-                  placeholder="https://example.com/video.mp4"
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
+            {/* Media Upload */}
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-3">إضافة وسائط</h4>
+              <MediaUpload
+                onMediaSelect={setSelectedFiles}
+                maxFiles={4}
+                acceptedTypes={['image/*', 'video/*']}
+                maxSize={50}
+              />
             </div>
 
-            {/* Media Preview */}
-            {imageUrl && (
-              <div className="border border-gray-200 rounded-lg p-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">معاينة الصورة:</h4>
-                <img
-                  src={imageUrl}
-                  alt="Preview"
-                  className="max-w-full h-auto rounded-lg"
-                  onError={() => setError('رابط الصورة غير صحيح')}
-                />
-              </div>
-            )}
+            {/* Location */}
+            <div>
+              <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+                <MapPin className="w-4 h-4 ml-2" />
+                الموقع (اختياري)
+              </label>
+              <input
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="أضف موقعك"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
 
-            {videoUrl && (
-              <div className="border border-gray-200 rounded-lg p-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">معاينة الفيديو:</h4>
-                <video
-                  src={videoUrl}
-                  controls
-                  className="max-w-full h-auto rounded-lg"
-                  onError={() => setError('رابط الفيديو غير صحيح')}
-                />
+            {/* Privacy Settings */}
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-3">إعدادات الخصوصية</h4>
+              <div className="grid grid-cols-1 gap-3">
+                {privacyOptions.map(option => (
+                  <label
+                    key={option.value}
+                    className={`flex items-center p-3 border rounded-lg cursor-pointer transition-colors ${
+                      privacyLevel === option.value
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="privacy"
+                      value={option.value}
+                      checked={privacyLevel === option.value}
+                      onChange={(e) => setPrivacyLevel(e.target.value as any)}
+                      className="sr-only"
+                    />
+                    <div className="flex items-center space-x-3 space-x-reverse">
+                      <span className="text-xl">{option.icon}</span>
+                      <div>
+                        <h5 className="font-medium text-gray-900">{option.label}</h5>
+                        <p className="text-sm text-gray-500">{option.description}</p>
+                      </div>
+                    </div>
+                  </label>
+                ))}
               </div>
-            )}
+            </div>
 
             {/* Submit Button - Mobile */}
             <div className="lg:hidden pt-4">
               <button
                 type="submit"
-                disabled={loading || (!content.trim() && !imageUrl && !videoUrl)}
+                disabled={loading || (!content.trim() && selectedFiles.length === 0)}
                 className="w-full flex items-center justify-center py-3 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
               >
                 <Send className="w-5 h-5 ml-2" />
