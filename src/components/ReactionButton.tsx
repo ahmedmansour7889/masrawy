@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Heart, Smile, Angry, Frown, Surprise, ThumbsUp } from 'lucide-react';
+import { Heart, Smile, Angry, Frown, Sunrise as Surprise, ThumbsUp } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
