@@ -31,7 +31,7 @@ function App() {
             
             {/* Protected routes */}
             <Route path="/" element={<Layout />}>
-              <Route index element={<Navigate to="/home" replace />} />
+              <Route index element={<Navigate to="/home\" replace />} />
               <Route path="home" element={<Home />} />
               <Route path="create-post" element={<CreatePost />} />
               <Route path="create-story" element={<CreateStory />} />
