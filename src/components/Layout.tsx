@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, Link, useLocation, Navigate } from 'react-router-dom';
-import { Home, Search, PlusSquare, Heart, User, Settings, LogOut } from 'lucide-react';
+import { Home, Search, PlusSquare, Heart, User, Settings, LogOut, MessageCircle, Compass } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Layout() {
@@ -15,7 +15,7 @@ export default function Layout() {
     await signOut();
   };
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -27,8 +27,13 @@ export default function Layout() {
               المصراوي
             </Link>
             <div className="flex items-center space-x-4 space-x-reverse">
-              <Link to="/notifications" className="text-gray-600 hover:text-blue-600">
+              <Link to="/notifications" className="text-gray-600 hover:text-blue-600 relative">
                 <Heart className="w-6 h-6" />
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
+              </Link>
+              <Link to="/messages" className="text-gray-600 hover:text-blue-600 relative">
+                <MessageCircle className="w-6 h-6" />
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full"></span>
               </Link>
               <Link to="/create-post" className="text-gray-600 hover:text-blue-600">
                 <PlusSquare className="w-6 h-6" />
@@ -76,8 +81,32 @@ export default function Layout() {
                     : 'text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                <Search className="w-5 h-5 ml-3" />
+                <Compass className="w-5 h-5 ml-3" />
                 استكشاف
+              </Link>
+              <Link
+                to="/messages"
+                className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors relative ${
+                  isActive('/messages')
+                    ? 'bg-blue-50 text-blue-700'
+                    : 'text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <MessageCircle className="w-5 h-5 ml-3" />
+                الرسائل
+                <span className="absolute top-2 left-2 w-2 h-2 bg-blue-500 rounded-full"></span>
+              </Link>
+              <Link
+                to="/notifications"
+                className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors relative ${
+                  isActive('/notifications')
+                    ? 'bg-blue-50 text-blue-700'
+                    : 'text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <Heart className="w-5 h-5 ml-3" />
+                الإشعارات
+                <span className="absolute top-2 left-2 w-2 h-2 bg-red-500 rounded-full"></span>
               </Link>
               <Link
                 to="/create-post"
@@ -89,17 +118,6 @@ export default function Layout() {
               >
                 <PlusSquare className="w-5 h-5 ml-3" />
                 منشور جديد
-              </Link>
-              <Link
-                to="/notifications"
-                className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
-                  isActive('/notifications')
-                    ? 'bg-blue-50 text-blue-700'
-                    : 'text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <Heart className="w-5 h-5 ml-3" />
-                الإشعارات
               </Link>
               <Link
                 to={`/profile/${user?.user_metadata?.username || 'me'}`}
@@ -168,8 +186,18 @@ export default function Layout() {
                 isActive('/explore') ? 'text-blue-600' : 'text-gray-600'
               }`}
             >
-              <Search className="w-6 h-6" />
+              <Compass className="w-6 h-6" />
               <span className="mt-1">استكشاف</span>
+            </Link>
+            <Link
+              to="/messages"
+              className={`flex flex-col items-center px-2 py-2 text-xs relative ${
+                isActive('/messages') ? 'text-blue-600' : 'text-gray-600'
+              }`}
+            >
+              <MessageCircle className="w-6 h-6" />
+              <span className="mt-1">الرسائل</span>
+              <span className="absolute top-1 right-3 w-2 h-2 bg-blue-500 rounded-full"></span>
             </Link>
             <Link
               to={`/profile/${user?.user_metadata?.username || 'me'}`}
